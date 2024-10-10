@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32.SafeHandles;
+using Microsoft.Win32.SafeHandles;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -74,6 +74,9 @@ namespace UsbHid.USB.Classes
                     if (!success)
                     {
                         Debug.WriteLine("SetupDiGetDeviceInterfaceDetail failed for run {0} with error {1}", listIndex, Marshal.GetLastWin32Error());
+                        // Clean up unmanaged memory allocation detailDataBuffer and free resources held by the windows API
+                        Marshal.FreeHGlobal(detailDataBuffer);
+                        detailDataBuffer = IntPtr.Zero;
                         continue;
                     }
 
@@ -82,6 +85,10 @@ namespace UsbHid.USB.Classes
 
                     // Get the String containing the devicePathName.
                     listOfDevicePathNames.Add(Marshal.PtrToStringAuto(pDevicePathName));
+
+                    // Clean up unmanaged memory allocation detailDataBuffer and free resources held by the windows API
+                    Marshal.FreeHGlobal(detailDataBuffer);
+                    detailDataBuffer = IntPtr.Zero;
                 }
             }
             catch (Exception)
@@ -92,7 +99,11 @@ namespace UsbHid.USB.Classes
             finally
             {
                 // Clean up the unmanaged memory allocations and free resources held by the windows API
-                Marshal.FreeHGlobal(detailDataBuffer);
+                if(detailDataBuffer != IntPtr.Zero)
+                {
+                    Marshal.FreeHGlobal(detailDataBuffer);
+                    detailDataBuffer = IntPtr.Zero;
+                }
                 SetupApi.SetupDiDestroyDeviceInfoList(deviceInfoSet);
             }
 
