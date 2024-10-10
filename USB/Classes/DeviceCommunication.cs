@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using UsbHid.USB.Classes.DllWrappers;
@@ -21,12 +22,37 @@ namespace UsbHid.USB.Classes
             try
             {
                 // Set an output report via interrupt to the device
-                var success = Kernel32.WriteFile(
-                    deviceInformation.WriteHandle,
-                    outputReportBuffer,
-                    outputReportBuffer.Length,
-                    ref numberOfBytesWritten,
-                    IntPtr.Zero);
+                bool success = false;
+
+                //do retries because first write to an USB hid device (ex.: Hopt869T) fails
+                //after waiting and retries it works!? What the heck Microsoft?
+                for (int i = 0; i < 5; i++)
+                {
+                    success = Kernel32.WriteFile(
+                        deviceInformation.WriteHandle,
+                        outputReportBuffer,
+                        outputReportBuffer.Length,
+                        ref numberOfBytesWritten,
+                        IntPtr.Zero);
+
+                    //did we succeed?
+                    if (success)
+                    {
+                        //write succeeded -> break retry loop
+                        break;
+                    }
+                    else
+                    {
+                        // We did not succeed, GetLastError may give more information about why not.
+                        int dwError = Marshal.GetLastWin32Error();
+                        //Check for 0x000003e3 = 995 dec windows error, which means: ERROR_OPERATION_ABORTED
+                        //  The I/ O operation has been aborted because of either a thread exit or an application request.
+                        if (dwError == 0x000003e3)
+                        {
+                            Thread.Sleep(100);
+                        }
+                    }
+                }
 
                 return success;
             }
