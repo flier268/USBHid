@@ -75,7 +75,7 @@ namespace UsbHid
         /// Create HID connection
         /// </summary>
         /// <param name="devicePath">Device Path(could got it from<code>DeviceDiscovery.FindHidDevices(new VidPidMatcher(VID, PID))</code></param>
-        /// <param name="MonitorDeviceEvents">Regist Connected/Disconnected event</param>
+        /// <param name="MonitorDeviceEvents">Register Connected/Disconnected event</param>
         public UsbHidDevice(string devicePath, bool MonitorDeviceEvents = true)
         {
             _deviceInformation.DevicePathName = devicePath;
@@ -85,7 +85,6 @@ namespace UsbHid
             {
                 _worker.RunWorkerAsync();
             }
-
             _deviceInformation.ConnectedChanged += DeviceConnectedChanged;
             _deviceEventMonitor = new HidDeviceEventMonitor(this);
             _deviceEventMonitor.Connected += ReportConnected;
@@ -123,6 +122,7 @@ namespace UsbHid
             catch (IOException ex)	// if we got an IO exception, the device was removed
             {
                 Debug.WriteLine(ex.ToString());
+                Disconnect();
             }
         }
 
@@ -131,7 +131,6 @@ namespace UsbHid
             if (isConnected)
             {
                 ReportConnected();
-                _worker.RunWorkerAsync();
             }
             else
             {
@@ -219,9 +218,10 @@ namespace UsbHid
             {
                 fs.BeginRead(syncObj.Buf, 0, iBufLen, ReadCompleted, syncObj);
             }
-            catch (Exception ex)
+            catch (Exception ex)	// if we got an IO exception, the device was removed
             {
                 Debug.WriteLine(ex.Message);
+                Disconnect();
             }
         }
 
@@ -233,6 +233,14 @@ namespace UsbHid
 
         private void ReportConnected()
         {
+            if(!_worker.IsBusy)
+            {
+                if (DeviceDiscovery.FindTargetDevice(ref _deviceInformation))
+                {
+
+                    _worker.RunWorkerAsync();
+                }
+            }
             OnConnected?.Invoke(this);
         }
 
